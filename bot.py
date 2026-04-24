@@ -126,13 +126,13 @@ DISCORD_INVITE_PATTERN = re.compile(
 # Anti-spam / anti-raid / anti-nuke configuration
 SPAM_WINDOW_SECONDS = 8
 SPAM_MESSAGE_THRESHOLD = 6
+SPAM_TIMEOUT_MINUTES = 10
 RAID_WINDOW_SECONDS = 12
 RAID_JOIN_THRESHOLD = 6
+RAID_TIMEOUT_MINUTES = 30
 NUKE_WINDOW_SECONDS = 18
 NUKE_ACTION_THRESHOLD = 3
 NUKE_BAN_REASON = "Automatic anti-nuke protection triggered."
-SPAM_BAN_REASON = "Automatic anti-spam protection triggered."
-RAID_BAN_REASON = "Automatic anti-raid protection triggered."
 
 # In-memory trackers (reset on bot restart)
 member_message_timestamps: dict[int, deque[float]] = defaultdict(deque)
@@ -188,13 +188,12 @@ async def on_message(message: discord.Message):
 
             if len(spam_queue) >= SPAM_MESSAGE_THRESHOLD:
                 try:
-                    await message.guild.ban(
-                        message.author,
-                        reason=SPAM_BAN_REASON,
-                        delete_message_days=0,
+                    await message.author.timeout(
+                        discord.utils.utcnow() + timedelta(minutes=SPAM_TIMEOUT_MINUTES),
+                        reason="Automatic anti-spam protection triggered.",
                     )
                     await message.channel.send(
-                        f"🛑 {message.author.mention} has been permanently banned for spam "
+                        f"🛑 {message.author.mention} has been timed out for spam "
                         f"({SPAM_MESSAGE_THRESHOLD}+ messages in {SPAM_WINDOW_SECONDS}s).",
                         delete_after=12,
                     )
@@ -265,17 +264,17 @@ async def on_member_join(member: discord.Member):
     join_queue.append(now_ts)
     prune_timestamps(join_queue, now_ts, RAID_WINDOW_SECONDS)
 
-    # Anti-raid: if many users join quickly, instantly ban newly joining users.
+    # Anti-raid: if many users join quickly, temporarily timeout new joiners.
     if len(join_queue) >= RAID_JOIN_THRESHOLD:
         try:
-            await guild.ban(
-                member,
-                reason=RAID_BAN_REASON,
-                delete_message_days=0,
+            await member.timeout(
+                discord.utils.utcnow() + timedelta(minutes=RAID_TIMEOUT_MINUTES),
+                reason="Automatic anti-raid protection triggered.",
             )
             if guild.system_channel:
                 await guild.system_channel.send(
-                    f"🚨 Anti-raid active: {member.mention} was permanently banned."
+                    f"🚨 Anti-raid active: {member.mention} was timed out for "
+                    f"{RAID_TIMEOUT_MINUTES} minutes."
                 )
         except (discord.Forbidden, discord.HTTPException):
             pass
