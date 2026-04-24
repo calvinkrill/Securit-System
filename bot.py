@@ -133,6 +133,10 @@ RAID_TIMEOUT_MINUTES = 30
 NUKE_WINDOW_SECONDS = 18
 NUKE_ACTION_THRESHOLD = 3
 NUKE_BAN_REASON = "Automatic anti-nuke protection triggered."
+IMAGE_SPAM_WINDOW_SECONDS = 25
+IMAGE_SPAM_ATTACHMENT_THRESHOLD = 8
+IMAGE_SPAM_CHANNEL_THRESHOLD = 3
+IMAGE_SPAM_BAN_REASON = "Automatic anti-picture spam protection triggered."
 
 # In-memory trackers (reset on bot restart)
 member_message_timestamps: dict[int, deque[float]] = defaultdict(deque)
@@ -140,6 +144,7 @@ guild_join_timestamps: dict[int, deque[float]] = defaultdict(deque)
 guild_nuke_action_timestamps: dict[int, dict[int, deque[float]]] = defaultdict(
     lambda: defaultdict(deque)
 )
+member_image_spam_events: dict[int, deque[tuple[float, int]]] = defaultdict(deque)
 
 
 def prune_timestamps(queue: deque[float], now_ts: float, window_seconds: int) -> None:
@@ -148,6 +153,33 @@ def prune_timestamps(queue: deque[float], now_ts: float, window_seconds: int) ->
     while queue and queue[0] < cutoff:
         queue.popleft()
 
+
+
+def prune_image_events(
+    queue: deque[tuple[float, int]],
+    now_ts: float,
+    window_seconds: int,
+) -> None:
+    """Keep only image spam events inside a rolling window."""
+    cutoff = now_ts - window_seconds
+    while queue and queue[0][0] < cutoff:
+        queue.popleft()
+
+
+def message_image_attachment_count(message: discord.Message) -> int:
+    """Count image attachments in a message."""
+    image_attachments = 0
+    for attachment in message.attachments:
+        content_type = (attachment.content_type or "").lower()
+        if content_type.startswith("image/"):
+            image_attachments += 1
+            continue
+        if any(
+            attachment.filename.lower().endswith(ext)
+            for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tiff")
+        ):
+            image_attachments += 1
+    return image_attachments
 
 
 def normalize_for_moderation(content: str) -> str:
@@ -202,6 +234,36 @@ async def on_message(message: discord.Message):
                 finally:
                     spam_queue.clear()
                 return
+
+            image_count = message_image_attachment_count(message)
+            if image_count > 0:
+                image_queue = member_image_spam_events[key]
+                for _ in range(image_count):
+                    image_queue.append((now_ts, message.channel.id))
+                prune_image_events(image_queue, now_ts, IMAGE_SPAM_WINDOW_SECONDS)
+
+                unique_channels = {channel_id for _, channel_id in image_queue}
+                if (
+                    len(image_queue) >= IMAGE_SPAM_ATTACHMENT_THRESHOLD
+                    and len(unique_channels) >= IMAGE_SPAM_CHANNEL_THRESHOLD
+                ):
+                    try:
+                        await message.guild.ban(
+                            message.author,
+                            reason=IMAGE_SPAM_BAN_REASON,
+                            delete_message_days=1,
+                        )
+                        await message.channel.send(
+                            f"🚫 {message.author.mention} was automatically banned for picture spam "
+                            f"({IMAGE_SPAM_ATTACHMENT_THRESHOLD}+ image uploads in "
+                            f"{IMAGE_SPAM_WINDOW_SECONDS}s across {IMAGE_SPAM_CHANNEL_THRESHOLD}+ channels).",
+                            delete_after=12,
+                        )
+                    except (discord.Forbidden, discord.HTTPException):
+                        pass
+                    finally:
+                        image_queue.clear()
+                    return
 
         invite_found = DISCORD_INVITE_PATTERN.search(message.content)
         if invite_found and message.guild and isinstance(message.author, discord.Member):
