@@ -107,16 +107,15 @@ async def on_message(message: discord.Message):
     await bot.process_commands(message)
 
 
-@bot.command()
-async def ping(ctx: commands.Context):
-    """Responds with Pong!"""
-    await ctx.send("Pong!")
+@bot.tree.command(name="ping", description="Respond with Pong!")
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong!")
 
 
-@bot.command()
-async def echo(ctx: commands.Context, *, message: str):
-    """Echoes back the message provided."""
-    await ctx.send(message)
+@bot.tree.command(name="echo", description="Echo back the message provided.")
+@app_commands.describe(message="The message you want the bot to repeat")
+async def echo(interaction: discord.Interaction, message: str):
+    await interaction.response.send_message(message)
 
 
 @bot.tree.command(name="automod", description="Toggle automatic moderation on or off for this server.")
@@ -140,6 +139,22 @@ async def automod(interaction: discord.Interaction, state: app_commands.Choice[s
 
     await interaction.response.send_message(
         f"✅ Auto moderation is now **{'ON' if enabled else 'OFF'}** for this server.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(name="commands", description="Show all available custom slash commands.")
+async def commands_list(interaction: discord.Interaction):
+    custom_commands = [
+        ("/ping", "Respond with Pong!"),
+        ("/echo <message>", "Echo back the message provided."),
+        ("/automod <on|off>", "Toggle automatic moderation on or off for this server."),
+        ("/commands", "Show all available custom slash commands."),
+    ]
+
+    lines = [f"• **{name}** — {description}" for name, description in custom_commands]
+    await interaction.response.send_message(
+        "Here are the custom slash commands:\n" + "\n".join(lines),
         ephemeral=True,
     )
 
