@@ -1,6 +1,7 @@
 import os
 import re
 import unicodedata
+from datetime import timedelta
 
 import discord
 from discord import app_commands
@@ -115,6 +116,10 @@ LEETSPEAK_MAP = str.maketrans(
 ALL_FLAGGED_TERMS = set().union(*BAD_WORDS.values())
 ESCAPED_TERMS = sorted((re.escape(term) for term in ALL_FLAGGED_TERMS), key=len, reverse=True)
 FLAGGED_PATTERN = re.compile(rf"(?<!\\w)({'|'.join(ESCAPED_TERMS)})(?!\\w)", re.IGNORECASE)
+DISCORD_INVITE_PATTERN = re.compile(
+    r"(?:https?://)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com/invite)/[A-Za-z0-9-]+",
+    re.IGNORECASE,
+)
 
 
 
@@ -146,6 +151,31 @@ async def on_message(message: discord.Message):
     automod_enabled = True if guild_id is None else automod_enabled_by_guild.get(guild_id, True)
 
     if automod_enabled:
+        invite_found = DISCORD_INVITE_PATTERN.search(message.content)
+        if invite_found and message.guild and isinstance(message.author, discord.Member):
+            try:
+                await message.delete()
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
+            try:
+                await message.author.timeout(
+                    discord.utils.utcnow() + timedelta(days=14),
+                    reason="Posted a Discord server invite link.",
+                )
+                await message.channel.send(
+                    f"⛔ {message.author.mention} has been timed out for 2 weeks for posting a Discord invite link.",
+                    delete_after=12,
+                )
+            except discord.Forbidden:
+                await message.channel.send(
+                    "⚠️ I detected a Discord invite link but I don't have permission to timeout this user.",
+                    delete_after=10,
+                )
+            except discord.HTTPException:
+                pass
+            return
+
         content_to_check = normalize_for_moderation(message.content)
         found = FLAGGED_PATTERN.search(content_to_check)
         if found:
