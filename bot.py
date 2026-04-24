@@ -1,5 +1,6 @@
 import os
 import re
+import unicodedata
 
 import discord
 from discord import app_commands
@@ -21,7 +22,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Per-guild automod toggle (defaults to enabled)
 automod_enabled_by_guild: dict[int, bool] = {}
 
-# Word lists for auto moderation
+# Word lists for auto moderation.
+# NOTE: This list intentionally includes terms from multiple categories/languages,
+# including common Bisaya profanity samples requested by the user.
 BAD_WORDS = {
     "curse": {
         "damn",
@@ -32,6 +35,20 @@ BAD_WORDS = {
         "fuck",
         "fucker",
         "fucking",
+        "bullshit",
+        "motherfucker",
+        "piste",
+        "yawa",
+        "animal",
+        "buang",
+        "giatay",
+        "atay",
+        "leche",
+        "ulol",
+        "putangina",
+        "puta",
+        "gago",
+        "tanga",
     },
     "sexual": {
         "sex",
@@ -43,6 +60,12 @@ BAD_WORDS = {
         "doggystyle",
         "threesome",
         "handjob",
+        "nudes",
+        "anal",
+        "oral sex",
+        "gangbang",
+        "cum",
+        "horny",
     },
     "harassment": {
         "idiot",
@@ -52,21 +75,58 @@ BAD_WORDS = {
         "retard",
         "kys",
         "kill yourself",
+        "die",
+        "go die",
+        "ugly",
+        "fatso",
+        "slut",
+        "whore",
     },
-    "racist": {
+    "racist_or_hate": {
         "nigger",
         "nigga",
         "chink",
         "spic",
         "gook",
         "wetback",
+        "faggot",
+        "tranny",
     },
 }
 
-# Flatten all terms to one set and escape for regex matching
+LEETSPEAK_MAP = str.maketrans(
+    {
+        "0": "o",
+        "1": "i",
+        "3": "e",
+        "4": "a",
+        "5": "s",
+        "7": "t",
+        "8": "b",
+        "@": "a",
+        "$": "s",
+        "!": "i",
+    }
+)
+
+
+# Flatten all terms to one set and escape for regex matching.
+# Use look-around boundaries so multi-word terms also match reliably.
 ALL_FLAGGED_TERMS = set().union(*BAD_WORDS.values())
 ESCAPED_TERMS = sorted((re.escape(term) for term in ALL_FLAGGED_TERMS), key=len, reverse=True)
-FLAGGED_PATTERN = re.compile(rf"\\b({'|'.join(ESCAPED_TERMS)})\\b", re.IGNORECASE)
+FLAGGED_PATTERN = re.compile(rf"(?<!\\w)({'|'.join(ESCAPED_TERMS)})(?!\\w)", re.IGNORECASE)
+
+
+
+def normalize_for_moderation(content: str) -> str:
+    """Normalize message text to catch common obfuscation tactics."""
+    text = unicodedata.normalize("NFKD", content)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = text.translate(LEETSPEAK_MAP)
+    # Remove punctuation/underscores separators to catch f.u.c.k or f_u_c_k
+    text = re.sub(r"[\W_]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 @bot.event
@@ -86,15 +146,18 @@ async def on_message(message: discord.Message):
     automod_enabled = True if guild_id is None else automod_enabled_by_guild.get(guild_id, True)
 
     if automod_enabled:
-        found = FLAGGED_PATTERN.search(message.content)
+        content_to_check = normalize_for_moderation(message.content)
+        found = FLAGGED_PATTERN.search(content_to_check)
         if found:
+            matched_term = found.group(1)
             try:
                 await message.delete()
                 warning = (
-                    f"⚠️ {message.author.mention}, your message was removed because it contains "
-                    "prohibited language (curse, sexual, harassment, or racist terms)."
+                    f"⚠️ {message.author.mention}, your message was removed automatically because it "
+                    f"contains prohibited language (detected: `{matched_term}`). "
+                    "Please avoid curse, sexual, harassment, and hate/racist words."
                 )
-                await message.channel.send(warning, delete_after=10)
+                await message.channel.send(warning, delete_after=12)
             except discord.Forbidden:
                 await message.channel.send(
                     "⚠️ I detected prohibited words but I don't have permission to delete messages.",
