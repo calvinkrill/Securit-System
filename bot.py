@@ -1,6 +1,7 @@
 import os
 import re
 import unicodedata
+from collections import defaultdict, deque
 from datetime import timedelta
 
 import discord
@@ -17,6 +18,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
@@ -121,6 +123,31 @@ DISCORD_INVITE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Anti-spam / anti-raid / anti-nuke configuration
+SPAM_WINDOW_SECONDS = 8
+SPAM_MESSAGE_THRESHOLD = 6
+SPAM_TIMEOUT_MINUTES = 10
+RAID_WINDOW_SECONDS = 12
+RAID_JOIN_THRESHOLD = 6
+RAID_TIMEOUT_MINUTES = 30
+NUKE_WINDOW_SECONDS = 18
+NUKE_ACTION_THRESHOLD = 3
+NUKE_BAN_REASON = "Automatic anti-nuke protection triggered."
+
+# In-memory trackers (reset on bot restart)
+member_message_timestamps: dict[int, deque[float]] = defaultdict(deque)
+guild_join_timestamps: dict[int, deque[float]] = defaultdict(deque)
+guild_nuke_action_timestamps: dict[int, dict[int, deque[float]]] = defaultdict(
+    lambda: defaultdict(deque)
+)
+
+
+def prune_timestamps(queue: deque[float], now_ts: float, window_seconds: int) -> None:
+    """Keep only timestamps inside a rolling window."""
+    cutoff = now_ts - window_seconds
+    while queue and queue[0] < cutoff:
+        queue.popleft()
+
 
 
 def normalize_for_moderation(content: str) -> str:
@@ -151,6 +178,31 @@ async def on_message(message: discord.Message):
     automod_enabled = True if guild_id is None else automod_enabled_by_guild.get(guild_id, True)
 
     if automod_enabled:
+        # Anti-spam: timeout users who send too many messages quickly.
+        if message.guild and isinstance(message.author, discord.Member):
+            now_ts = discord.utils.utcnow().timestamp()
+            key = (message.guild.id << 22) + message.author.id
+            spam_queue = member_message_timestamps[key]
+            spam_queue.append(now_ts)
+            prune_timestamps(spam_queue, now_ts, SPAM_WINDOW_SECONDS)
+
+            if len(spam_queue) >= SPAM_MESSAGE_THRESHOLD:
+                try:
+                    await message.author.timeout(
+                        discord.utils.utcnow() + timedelta(minutes=SPAM_TIMEOUT_MINUTES),
+                        reason="Automatic anti-spam protection triggered.",
+                    )
+                    await message.channel.send(
+                        f"🛑 {message.author.mention} has been timed out for spam "
+                        f"({SPAM_MESSAGE_THRESHOLD}+ messages in {SPAM_WINDOW_SECONDS}s).",
+                        delete_after=12,
+                    )
+                except (discord.Forbidden, discord.HTTPException):
+                    pass
+                finally:
+                    spam_queue.clear()
+                return
+
         invite_found = DISCORD_INVITE_PATTERN.search(message.content)
         if invite_found and message.guild and isinstance(message.author, discord.Member):
             try:
@@ -200,6 +252,80 @@ async def on_message(message: discord.Message):
     await bot.process_commands(message)
 
 
+@bot.event
+async def on_member_join(member: discord.Member):
+    guild = member.guild
+    automod_enabled = automod_enabled_by_guild.get(guild.id, True)
+    if not automod_enabled:
+        return
+
+    now_ts = discord.utils.utcnow().timestamp()
+    join_queue = guild_join_timestamps[guild.id]
+    join_queue.append(now_ts)
+    prune_timestamps(join_queue, now_ts, RAID_WINDOW_SECONDS)
+
+    # Anti-raid: if many users join quickly, temporarily timeout new joiners.
+    if len(join_queue) >= RAID_JOIN_THRESHOLD:
+        try:
+            await member.timeout(
+                discord.utils.utcnow() + timedelta(minutes=RAID_TIMEOUT_MINUTES),
+                reason="Automatic anti-raid protection triggered.",
+            )
+            if guild.system_channel:
+                await guild.system_channel.send(
+                    f"🚨 Anti-raid active: {member.mention} was timed out for "
+                    f"{RAID_TIMEOUT_MINUTES} minutes."
+                )
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+
+
+async def handle_potential_nuke(
+    guild: discord.Guild,
+    action: discord.AuditLogAction,
+    target,
+) -> None:
+    automod_enabled = automod_enabled_by_guild.get(guild.id, True)
+    if not automod_enabled:
+        return
+
+    try:
+        entry = await anext(guild.audit_logs(limit=1, action=action))
+    except (StopAsyncIteration, discord.Forbidden, discord.HTTPException):
+        return
+
+    if entry.target.id != target.id or entry.user is None or entry.user.bot:
+        return
+
+    now_ts = discord.utils.utcnow().timestamp()
+    actor_id = entry.user.id
+    action_queue = guild_nuke_action_timestamps[guild.id][actor_id]
+    action_queue.append(now_ts)
+    prune_timestamps(action_queue, now_ts, NUKE_WINDOW_SECONDS)
+
+    if len(action_queue) >= NUKE_ACTION_THRESHOLD:
+        try:
+            await guild.ban(entry.user, reason=NUKE_BAN_REASON, delete_message_days=0)
+            if guild.system_channel:
+                await guild.system_channel.send(
+                    f"🛡️ Anti-nuke: Banned {entry.user.mention} for repeated destructive actions."
+                )
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        finally:
+            action_queue.clear()
+
+
+@bot.event
+async def on_guild_channel_delete(channel: discord.abc.GuildChannel):
+    await handle_potential_nuke(channel.guild, discord.AuditLogAction.channel_delete, channel)
+
+
+@bot.event
+async def on_guild_role_delete(role: discord.Role):
+    await handle_potential_nuke(role.guild, discord.AuditLogAction.role_delete, role)
+
+
 @bot.tree.command(name="ping", description="Respond with Pong!")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong!")
@@ -241,7 +367,10 @@ async def commands_list(interaction: discord.Interaction):
     custom_commands = [
         ("/ping", "Respond with Pong!"),
         ("/echo <message>", "Echo back the message provided."),
-        ("/automod <on|off>", "Toggle automatic moderation on or off for this server."),
+        (
+            "/automod <on|off>",
+            "Toggle anti-spam, anti-raid, anti-nuke, bad-word filter, and anti-invite on/off.",
+        ),
         ("/commands", "Show all available custom slash commands."),
     ]
 
