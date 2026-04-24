@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Initialize bot with all intents
-intents = discord.Intents.all()
+# Initialize bot with default intents
+# Note: To use prefix commands like !ping, you MUST enable "Message Content Intent" 
+# in the Discord Developer Portal (Applications -> Your Bot -> Bot -> Privileged Gateway Intents)
+intents = discord.Intents.default()
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
