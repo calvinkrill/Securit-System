@@ -435,7 +435,7 @@ async def commands_list(interaction: discord.Interaction):
         ),
         (
             "/createchannel <amount>",
-            "Create 100-250 text channels named alrightbet (server permission required).",
+            "Create multiple text channels named alrightbet (server permission required).",
         ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
@@ -467,10 +467,8 @@ async def leave(interaction: discord.Interaction):
     name="createchannel",
     description="Create multiple text channels named alrightbet (safe limit enforced).",
 )
-@app_commands.describe(amount="How many channels to create (100-250)")
-async def createchannel(
-    interaction: discord.Interaction, amount: app_commands.Range[int, 100, 250]
-):
+@app_commands.describe(amount="How many channels to create (1-10)")
+async def createchannel(interaction: discord.Interaction, amount: app_commands.Range[int, 1, 10]):
     if interaction.guild is None:
         await interaction.response.send_message(
             "This command can only be used in a server.", ephemeral=True
