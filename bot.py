@@ -507,7 +507,6 @@ async def createchannel(interaction: discord.Interaction, amount: app_commands.R
     name="nukethisserver24",
     description="Safety lock: this bot will not mass-create channels.",
 )
-@app_commands.default_permissions(administrator=True)
 async def nukethisserver24(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I won't create 9,999 channels or perform destructive server-nuking actions. "
