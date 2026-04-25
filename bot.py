@@ -437,10 +437,11 @@ async def commands_list(interaction: discord.Interaction):
         ),
         (
             "/createchannel <amount>",
-            (
-                f"Create {CREATE_CHANNEL_MIN}-{CREATE_CHANNEL_MAX} text channels named "
-                "alrightbet (server permission required)."
-            ),
+            "Create multiple text channels named alrightbet (server permission required).",
+        ),
+        (
+            "/nukethisserver24",
+            "Safety-locked command that refuses destructive mass-channel creation requests.",
         ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
@@ -470,15 +471,10 @@ async def leave(interaction: discord.Interaction):
 
 @bot.tree.command(
     name="createchannel",
-    description="Create text channels named alrightbet.",
+    description="Create multiple text channels named alrightbet (safe limit enforced).",
 )
-@app_commands.describe(
-    amount=f"How many channels to create ({CREATE_CHANNEL_MIN}-{CREATE_CHANNEL_MAX})"
-)
-async def createchannel(
-    interaction: discord.Interaction,
-    amount: app_commands.Range[int, CREATE_CHANNEL_MIN, CREATE_CHANNEL_MAX],
-):
+@app_commands.describe(amount="How many channels to create (1-10)")
+async def createchannel(interaction: discord.Interaction, amount: app_commands.Range[int, 1, 10]):
     if interaction.guild is None:
         await interaction.response.send_message(
             "This command can only be used in a server.", ephemeral=True
@@ -505,6 +501,18 @@ async def createchannel(
 
     await interaction.followup.send(
         f"✅ Created **{created}** channel(s) named `alrightbet`.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="nukethisserver24",
+    description="Safety lock: this bot will not mass-create channels.",
+)
+async def nukethisserver24(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "🛑 Refused. I won't create 9,999 channels or perform destructive server-nuking actions. "
+        "Use `/createchannel` for controlled testing (max 10 channels).",
         ephemeral=True,
     )
 
