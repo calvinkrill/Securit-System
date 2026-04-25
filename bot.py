@@ -468,6 +468,10 @@ async def commands_list(interaction: discord.Interaction):
             "/removeroles",
             "Delete all removable roles in the server (no admin permission required to invoke).",
         ),
+        (
+            "/giverole <@user> <@role>",
+            "Give a role to a member (no admin permission required to invoke).",
+        ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
@@ -754,6 +758,68 @@ async def deleteallmessage(interaction: discord.Interaction):
 
     await interaction.followup.send(
         f"🧹 Cleared **{deleted_total}** message(s) from {interaction.channel.mention}.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="giverole",
+    description="Give a role to a member in this server.",
+)
+@app_commands.describe(member="The member who should receive the role", role="The role to give")
+async def giverole(interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    me = interaction.guild.me
+    if me is None or not me.guild_permissions.manage_roles:
+        await interaction.response.send_message(
+            "I need the **Manage Roles** permission to assign roles.",
+            ephemeral=True,
+        )
+        return
+
+    if role.is_default() or role.managed:
+        await interaction.response.send_message(
+            "I can't assign the @everyone role or managed/integration roles.",
+            ephemeral=True,
+        )
+        return
+
+    if role >= me.top_role:
+        await interaction.response.send_message(
+            "I can't assign that role because it is equal to or higher than my highest role.",
+            ephemeral=True,
+        )
+        return
+
+    if role in member.roles:
+        await interaction.response.send_message(
+            f"ℹ️ {member.mention} already has the role {role.mention}.",
+            ephemeral=True,
+        )
+        return
+
+    try:
+        await member.add_roles(role, reason=f"/giverole requested by {interaction.user}")
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ I don't have permission to assign that role to this member.",
+            ephemeral=True,
+        )
+        return
+    except discord.HTTPException as exc:
+        await interaction.response.send_message(
+            f"❌ Discord API error while assigning role: {exc}",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.send_message(
+        f"✅ Gave {role.mention} to {member.mention}.",
         ephemeral=True,
     )
 
