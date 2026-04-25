@@ -3,6 +3,7 @@ import re
 import unicodedata
 from collections import defaultdict, deque
 from datetime import timedelta
+from typing import Union
 
 import discord
 from discord import app_commands
