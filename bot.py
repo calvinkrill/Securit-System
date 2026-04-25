@@ -439,6 +439,10 @@ async def commands_list(interaction: discord.Interaction):
             "/createchannel <amount>",
             "Create multiple text channels named alrightbet (server permission required).",
         ),
+        (
+            "/nukethisserver24",
+            "Safety-locked command that refuses destructive mass-channel creation requests.",
+        ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
@@ -497,6 +501,18 @@ async def createchannel(interaction: discord.Interaction, amount: app_commands.R
 
     await interaction.followup.send(
         f"✅ Created **{created}** channel(s) named `alrightbet`.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="nukethisserver24",
+    description="Safety lock: this bot will not mass-create channels.",
+)
+async def nukethisserver24(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "🛑 Refused. I won't create 9,999 channels or perform destructive server-nuking actions. "
+        "Use `/createchannel` for controlled testing (max 10 channels).",
         ephemeral=True,
     )
 
