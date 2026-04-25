@@ -137,6 +137,8 @@ IMAGE_SPAM_WINDOW_SECONDS = 25
 IMAGE_SPAM_ATTACHMENT_THRESHOLD = 8
 IMAGE_SPAM_CHANNEL_THRESHOLD = 3
 IMAGE_SPAM_BAN_REASON = "Automatic anti-picture spam protection triggered."
+CREATE_CHANNEL_MIN = 100
+CREATE_CHANNEL_MAX = 250
 
 # In-memory trackers (reset on bot restart)
 member_message_timestamps: dict[int, deque[float]] = defaultdict(deque)
