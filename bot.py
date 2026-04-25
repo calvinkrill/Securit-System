@@ -433,6 +433,7 @@ async def commands_list(interaction: discord.Interaction):
             "/automod <on|off>",
             "Toggle anti-spam, anti-raid, anti-nuke, bad-word filter, and anti-invite on/off.",
         ),
+        ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
 
@@ -441,6 +442,21 @@ async def commands_list(interaction: discord.Interaction):
         "Here are the custom slash commands:\n" + "\n".join(lines),
         ephemeral=True,
     )
+
+
+@bot.tree.command(name="leave", description="Make the bot leave the current server.")
+async def leave(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    guild_name = interaction.guild.name
+    await interaction.response.send_message(
+        f"👋 Leaving **{guild_name}** now.", ephemeral=True
+    )
+    await interaction.guild.leave()
 
 
 if __name__ == "__main__":
