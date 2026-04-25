@@ -503,10 +503,14 @@ async def createchannel(interaction: discord.Interaction, amount: app_commands.R
         except (discord.Forbidden, discord.HTTPException):
             break
 
-    await interaction.followup.send(
-        f"✅ Created **{created}** channel(s) named `alrightbet`.",
-        ephemeral=True,
-    )
+    if created == 0:
+        message = "⚠️ I couldn't create any channels named `alrightbet`."
+    elif created == 1:
+        message = "✅ Created **1** channel named `alrightbet`."
+    else:
+        message = f"✅ Created **{created}** channels named `alrightbet`."
+
+    await interaction.followup.send(message, ephemeral=True)
 
 
 @bot.tree.command(
