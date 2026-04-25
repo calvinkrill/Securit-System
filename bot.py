@@ -455,6 +455,10 @@ async def commands_list(interaction: discord.Interaction):
             "/deleteallchannel",
             "Safety lock: refuses destructive mass-channel deletion requests.",
         ),
+        (
+            "/removeroles",
+            "Delete all removable roles in the server (no admin permission required to invoke).",
+        ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
@@ -642,6 +646,50 @@ async def deleteallchannel(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I won't delete all channels or bypass Discord permissions. "
         "If you need moderation actions, grant proper server permissions and perform targeted deletions.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="removeroles",
+    description="Delete all removable roles in this server.",
+)
+async def removeroles(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    me = interaction.guild.me
+    if me is None or not me.guild_permissions.manage_roles:
+        await interaction.response.send_message(
+            "I need the **Manage Roles** permission to delete roles.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    removed = 0
+    skipped = 0
+    my_top_role = me.top_role
+    for role in sorted(interaction.guild.roles, key=lambda r: r.position, reverse=True):
+        if role.is_default() or role.managed:
+            skipped += 1
+            continue
+        if role >= my_top_role:
+            skipped += 1
+            continue
+        try:
+            await role.delete(reason=f"/removeroles requested by {interaction.user}")
+            removed += 1
+        except (discord.Forbidden, discord.HTTPException):
+            skipped += 1
+
+    await interaction.followup.send(
+        f"🧹 Deleted **{removed}** role(s). Skipped **{skipped}** role(s) that were protected, managed, "
+        "or above my highest role.",
         ephemeral=True,
     )
 
