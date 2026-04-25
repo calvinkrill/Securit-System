@@ -456,6 +456,10 @@ async def commands_list(interaction: discord.Interaction):
             "Safety lock: refuses destructive mass-channel deletion requests.",
         ),
         (
+            "/deleteallmessage",
+            "Delete all deletable messages in the current text channel.",
+        ),
+        (
             "/removeroles",
             "Delete all removable roles in the server (no admin permission required to invoke).",
         ),
@@ -646,6 +650,56 @@ async def deleteallchannel(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I won't delete all channels or bypass Discord permissions. "
         "If you need moderation actions, grant proper server permissions and perform targeted deletions.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="deleteallmessage",
+    description="Delete all deletable messages in this channel.",
+)
+async def deleteallmessage(interaction: discord.Interaction):
+    if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
+        await interaction.response.send_message(
+            "This command can only be used in a server text channel.",
+            ephemeral=True,
+        )
+        return
+
+    me = interaction.guild.me
+    if me is None or not me.guild_permissions.manage_messages:
+        await interaction.response.send_message(
+            "I need the **Manage Messages** permission to delete channel messages.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    deleted_total = 0
+    while True:
+        try:
+            deleted_batch = await interaction.channel.purge(limit=100, bulk=True)
+        except discord.Forbidden:
+            await interaction.followup.send(
+                "❌ I don't have permission to clear this channel.",
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException as exc:
+            await interaction.followup.send(
+                f"❌ Discord API error while deleting messages: {exc}",
+                ephemeral=True,
+            )
+            return
+
+        batch_count = len(deleted_batch)
+        deleted_total += batch_count
+        if batch_count < 100:
+            break
+
+    await interaction.followup.send(
+        f"🧹 Cleared **{deleted_total}** message(s) from {interaction.channel.mention}.",
         ephemeral=True,
     )
 
