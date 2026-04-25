@@ -457,8 +457,8 @@ async def commands_list(interaction: discord.Interaction):
             "Safety lock: refuses destructive mass-channel deletion requests.",
         ),
         (
-            "/deletechannel <#channel|#voicechannel|#category>",
-            "Delete one specific text/voice/category channel (no admin permission needed to invoke).",
+            "/deletechannel <#channel>",
+            "Delete one specific channel you choose (no admin permission needed to invoke).",
         ),
         (
             "/deleteallmessage",
@@ -661,13 +661,10 @@ async def deleteallchannel(interaction: discord.Interaction):
 
 @bot.tree.command(
     name="deletechannel",
-    description="Delete one specific text, voice, or category channel in this server.",
+    description="Delete one specific channel in this server.",
 )
-@app_commands.describe(channel="The text, voice, or category channel you want me to delete")
-async def deletechannel(
-    interaction: discord.Interaction,
-    channel: Union[discord.TextChannel, discord.VoiceChannel, discord.CategoryChannel],
-):
+@app_commands.describe(channel="The channel you want me to delete")
+async def deletechannel(interaction: discord.Interaction, channel: discord.TextChannel):
     if interaction.guild is None:
         await interaction.response.send_message(
             "This command can only be used in a server.", ephemeral=True
@@ -706,7 +703,7 @@ async def deletechannel(
         return
 
     await interaction.response.send_message(
-        f"🧹 Deleted channel **{channel_name}**.",
+        f"🧹 Deleted channel **#{channel_name}**.",
         ephemeral=True,
     )
 
