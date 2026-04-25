@@ -551,8 +551,21 @@ async def createchannel(interaction: discord.Interaction, amount: app_commands.R
         )
         return
 
-    me = interaction.guild.me
-    if me is None or not me.guild_permissions.manage_channels:
+    me = interaction.guild.get_member(bot.user.id) if bot.user else None
+    if me is None and bot.user:
+        try:
+            me = await interaction.guild.fetch_member(bot.user.id)
+        except (discord.Forbidden, discord.HTTPException):
+            me = None
+
+    if me is None:
+        await interaction.response.send_message(
+            "I couldn't confirm my server permissions. Please try again in a few seconds.",
+            ephemeral=True,
+        )
+        return
+
+    if not me.guild_permissions.manage_channels:
         await interaction.response.send_message(
             "I need the **Manage Channels** permission to create channels.",
             ephemeral=True,
@@ -562,12 +575,34 @@ async def createchannel(interaction: discord.Interaction, amount: app_commands.R
     await interaction.response.defer(ephemeral=True, thinking=True)
 
     created = 0
+    creation_error: str | None = None
     for _ in range(amount):
         try:
             await interaction.guild.create_text_channel(name="alrightbet")
             created += 1
-        except (discord.Forbidden, discord.HTTPException):
+        except discord.Forbidden:
+            creation_error = (
+                "I was blocked by Discord permissions while creating channels. "
+                "Please check role and category permissions."
+            )
             break
+        except discord.HTTPException as exc:
+            creation_error = f"Discord API error while creating channels: {exc}"
+            break
+
+    if created == 0:
+        await interaction.followup.send(
+            f"❌ No channels were created. {creation_error or 'Unknown error.'}",
+            ephemeral=True,
+        )
+        return
+
+    if creation_error:
+        await interaction.followup.send(
+            f"✅ Created **{created}** channel(s) named `alrightbet`, then stopped. {creation_error}",
+            ephemeral=True,
+        )
+        return
 
     await interaction.followup.send(
         f"✅ Created **{created}** channel(s) named `alrightbet`.",
