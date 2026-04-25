@@ -25,6 +25,16 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Per-guild automod toggle (defaults to enabled)
 automod_enabled_by_guild: dict[int, bool] = {}
 
+# Simple auto-reply examples for common greetings/messages.
+AUTO_REPLIES = {
+    "hi": "Hello! 👋",
+    "hello": "Hi there! 😊",
+    "hey": "Hey! How can I help?",
+    "good morning": "Good morning! ☀️",
+    "good night": "Good night! 🌙",
+    "bye": "Goodbye! See you next time! 👋",
+}
+
 # Word lists for auto moderation.
 # NOTE: This list intentionally includes terms from multiple categories/languages,
 # including common Bisaya profanity samples requested by the user.
@@ -193,6 +203,19 @@ def normalize_for_moderation(content: str) -> str:
     return text
 
 
+def get_auto_reply(content: str) -> str | None:
+    """Return a predefined auto-reply for short/common greetings."""
+    normalized = normalize_for_moderation(content).lower()
+    if not normalized:
+        return None
+
+    # Match either exact message ("hi") or bot-directed greeting ("hi bot").
+    for trigger, reply in AUTO_REPLIES.items():
+        if normalized == trigger or normalized.startswith(f"{trigger} bot"):
+            return reply
+    return None
+
+
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
@@ -205,6 +228,13 @@ async def on_ready():
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
+
+    auto_reply = get_auto_reply(message.content)
+    if auto_reply:
+        try:
+            await message.channel.send(auto_reply)
+        except discord.HTTPException:
+            pass
 
     guild_id = message.guild.id if message.guild else None
     automod_enabled = True if guild_id is None else automod_enabled_by_guild.get(guild_id, True)
