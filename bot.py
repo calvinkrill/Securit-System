@@ -447,6 +447,10 @@ async def commands_list(interaction: discord.Interaction):
             "/thisisme",
             "Safety lock: refuses requests to mass-create channels or bypass server permissions.",
         ),
+        (
+            "/deleteallchannel",
+            "Safety lock: refuses destructive mass-channel deletion requests.",
+        ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
@@ -529,6 +533,18 @@ async def thisisme(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I can't create 50-100 channels automatically or bypass Discord permissions. "
         "Use `/createchannel` for controlled testing (max 10 channels, and I still need Manage Channels).",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="deleteallchannel",
+    description="Safety lock: this bot will not mass-delete channels or bypass permissions.",
+)
+async def deleteallchannel(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "🛑 Refused. I won't delete all channels or bypass Discord permissions. "
+        "If you need moderation actions, grant proper server permissions and perform targeted deletions.",
         ephemeral=True,
     )
 
