@@ -432,6 +432,10 @@ async def commands_list(interaction: discord.Interaction):
         ("/ping", "Respond with Pong!"),
         ("/echo <message>", "Echo back the message provided."),
         (
+            "/serverchannels",
+            "Post the server channel template shown in your reference screenshot.",
+        ),
+        (
             "/automod <on|off>",
             "Toggle anti-spam, anti-raid, anti-nuke, bad-word filter, and anti-invite on/off.",
         ),
@@ -475,6 +479,64 @@ async def leave(interaction: discord.Interaction):
         f"👋 Leaving **{guild_name}** now.", ephemeral=True
     )
     await interaction.guild.leave()
+
+
+@bot.tree.command(
+    name="serverchannels",
+    description="Post the full server channel list template from the reference layout.",
+)
+async def serverchannels(interaction: discord.Interaction):
+    channel_template = "\n".join(
+        [
+            "**Information**",
+            "📩・invite-trucker",
+            "🤝・partner-ship",
+            "📍・us",
+            "",
+            "**Pinned**",
+            "📢・announcement",
+            "📜・rules",
+            "🚀・boost",
+            "🔥・event",
+            "😊・self-role",
+            "",
+            "**Global Chat**",
+            "💬・english",
+            "💬・bisaya",
+            "",
+            "**Media**",
+            "📸・selfie",
+            "🎞️・tiktok",
+            "🖌️・art",
+            "👻・pet",
+            "🍜・food",
+            "🤣・memes",
+            "",
+            "**Public VC**",
+            "🔊・Voice 1",
+            "🔊・Voice 2",
+            "🔊・Voice 3",
+            "🔊・Voice 4",
+            "🔊・Voice 5",
+            "🔊・Voice 6",
+            "🔊・Voice 7",
+            "🔊・Voice 8",
+            "",
+            "**Private VC**",
+            "🎧・Private 1",
+            "🎧・Private 2",
+            "🎧・Private 3",
+            "🎧・Private 4",
+            "🎧・Private 5",
+            "🎧・Private 6",
+            "🎧・Private 7",
+            "🎧・Private 8",
+            "",
+            "**BMC 7/11**",
+            "🤖・Bot 7/11",
+        ]
+    )
+    await interaction.response.send_message(channel_template)
 
 
 @bot.tree.command(
