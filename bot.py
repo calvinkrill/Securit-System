@@ -477,8 +477,8 @@ async def leave(interaction: discord.Interaction):
     name="createchannel",
     description="Create multiple text channels named alrightbet (safe limit enforced).",
 )
-@app_commands.describe(amount="How many channels to create (1-10)")
-async def createchannel(interaction: discord.Interaction, amount: app_commands.Range[int, 1, 10]):
+@app_commands.describe(amount="How many channels to create (1-50)")
+async def createchannel(interaction: discord.Interaction, amount: app_commands.Range[int, 1, 50]):
     if interaction.guild is None:
         await interaction.response.send_message(
             "This command can only be used in a server.", ephemeral=True
@@ -516,7 +516,7 @@ async def createchannel(interaction: discord.Interaction, amount: app_commands.R
 async def nukethisserver24(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I won't create 9,999 channels or perform destructive server-nuking actions. "
-        "Use `/createchannel` for controlled testing (max 10 channels).",
+        "Use `/createchannel` for controlled testing (max 50 channels).",
         ephemeral=True,
     )
 
@@ -528,7 +528,7 @@ async def nukethisserver24(interaction: discord.Interaction):
 async def thisisme(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I can't create 50-100 channels automatically or bypass Discord permissions. "
-        "Use `/createchannel` for controlled testing (max 10 channels, and I still need Manage Channels).",
+        "Use `/createchannel` for controlled testing (max 50 channels, and I still need Manage Channels).",
         ephemeral=True,
     )
 
