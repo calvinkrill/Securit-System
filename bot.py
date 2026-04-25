@@ -443,6 +443,10 @@ async def commands_list(interaction: discord.Interaction):
             "/nukethisserver24",
             "Safety-locked command that refuses destructive mass-channel creation requests.",
         ),
+        (
+            "/thisisme",
+            "Safety lock: refuses requests to mass-create channels or bypass server permissions.",
+        ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
@@ -513,6 +517,18 @@ async def nukethisserver24(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I won't create 9,999 channels or perform destructive server-nuking actions. "
         "Use `/createchannel` for controlled testing (max 10 channels).",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="thisisme",
+    description="Safety lock: this bot will not bypass permissions or mass-create channels.",
+)
+async def thisisme(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "🛑 Refused. I can't create 50-100 channels automatically or bypass Discord permissions. "
+        "Use `/createchannel` for controlled testing (max 10 channels, and I still need Manage Channels).",
         ephemeral=True,
     )
 
