@@ -433,6 +433,10 @@ async def commands_list(interaction: discord.Interaction):
             "/automod <on|off>",
             "Toggle anti-spam, anti-raid, anti-nuke, bad-word filter, and anti-invite on/off.",
         ),
+        (
+            "/createchannel <amount>",
+            "Create 100-250 text channels named alrightbet (server permission required).",
+        ),
         ("/leave", "Make the bot leave the current server."),
         ("/commands", "Show all available custom slash commands."),
     ]
@@ -457,6 +461,44 @@ async def leave(interaction: discord.Interaction):
         f"👋 Leaving **{guild_name}** now.", ephemeral=True
     )
     await interaction.guild.leave()
+
+
+@bot.tree.command(
+    name="createchannel",
+    description="Create multiple text channels named alrightbet (safe limit enforced).",
+)
+@app_commands.describe(amount="How many channels to create (100-250)")
+async def createchannel(
+    interaction: discord.Interaction, amount: app_commands.Range[int, 100, 250]
+):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    me = interaction.guild.me
+    if me is None or not me.guild_permissions.manage_channels:
+        await interaction.response.send_message(
+            "I need the **Manage Channels** permission to create channels.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    created = 0
+    for _ in range(amount):
+        try:
+            await interaction.guild.create_text_channel(name="alrightbet")
+            created += 1
+        except (discord.Forbidden, discord.HTTPException):
+            break
+
+    await interaction.followup.send(
+        f"✅ Created **{created}** channel(s) named `alrightbet`.",
+        ephemeral=True,
+    )
 
 
 if __name__ == "__main__":
