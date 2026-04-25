@@ -456,6 +456,10 @@ async def commands_list(interaction: discord.Interaction):
             "Safety lock: refuses destructive mass-channel deletion requests.",
         ),
         (
+            "/deletechannel <#channel>",
+            "Delete one specific channel you choose (no admin permission needed to invoke).",
+        ),
+        (
             "/deleteallmessage",
             "Delete all deletable messages in the current text channel.",
         ),
@@ -650,6 +654,55 @@ async def deleteallchannel(interaction: discord.Interaction):
     await interaction.response.send_message(
         "🛑 Refused. I won't delete all channels or bypass Discord permissions. "
         "If you need moderation actions, grant proper server permissions and perform targeted deletions.",
+        ephemeral=True,
+    )
+
+
+@bot.tree.command(
+    name="deletechannel",
+    description="Delete one specific channel in this server.",
+)
+@app_commands.describe(channel="The channel you want me to delete")
+async def deletechannel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    me = interaction.guild.me
+    if me is None or not me.guild_permissions.manage_channels:
+        await interaction.response.send_message(
+            "I need the **Manage Channels** permission to delete channels.",
+            ephemeral=True,
+        )
+        return
+
+    if channel.guild.id != interaction.guild.id:
+        await interaction.response.send_message(
+            "That channel is not in this server.",
+            ephemeral=True,
+        )
+        return
+
+    channel_name = channel.name
+    try:
+        await channel.delete(reason=f"/deletechannel requested by {interaction.user}")
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ I don't have permission to delete that channel.",
+            ephemeral=True,
+        )
+        return
+    except discord.HTTPException as exc:
+        await interaction.response.send_message(
+            f"❌ Discord API error while deleting channel: {exc}",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.send_message(
+        f"🧹 Deleted channel **#{channel_name}**.",
         ephemeral=True,
     )
 
