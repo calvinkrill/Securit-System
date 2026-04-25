@@ -432,6 +432,10 @@ async def commands_list(interaction: discord.Interaction):
         ("/ping", "Respond with Pong!"),
         ("/echo <message>", "Echo back the message provided."),
         (
+            "/serverchannels",
+            "Create the server channel layout shown in your reference screenshot.",
+        ),
+        (
             "/automod <on|off>",
             "Toggle anti-spam, anti-raid, anti-nuke, bad-word filter, and anti-invite on/off.",
         ),
@@ -475,6 +479,126 @@ async def leave(interaction: discord.Interaction):
         f"👋 Leaving **{guild_name}** now.", ephemeral=True
     )
     await interaction.guild.leave()
+
+
+@bot.tree.command(
+    name="serverchannels",
+    description="Create the full server channel layout from the reference template.",
+)
+async def serverchannels(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    me = interaction.guild.me
+    if me is None or not me.guild_permissions.manage_channels:
+        await interaction.response.send_message(
+            "I need the **Manage Channels** permission to create this setup.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+
+    layout = [
+        (
+            "Information",
+            [
+                ("text", "📩・invite-trucker"),
+                ("text", "🤝・partner-ship"),
+                ("text", "📍・us"),
+            ],
+        ),
+        (
+            "Pinned",
+            [
+                ("text", "📢・announcement"),
+                ("text", "📜・rules"),
+                ("text", "🚀・boost"),
+                ("text", "🔥・event"),
+                ("text", "😊・self-role"),
+            ],
+        ),
+        (
+            "Global Chat",
+            [
+                ("text", "💬・english"),
+                ("text", "💬・bisaya"),
+            ],
+        ),
+        (
+            "Media",
+            [
+                ("text", "📸・selfie"),
+                ("text", "🎞️・tiktok"),
+                ("text", "🖌️・art"),
+                ("text", "👻・pet"),
+                ("text", "🍜・food"),
+                ("text", "🤣・memes"),
+            ],
+        ),
+        (
+            "Public VC",
+            [("voice", f"🔊・Voice {index}") for index in range(1, 9)],
+        ),
+        (
+            "Private VC",
+            [("voice", f"🎧・Private {index}") for index in range(1, 9)],
+        ),
+        (
+            "BMC 7/11",
+            [("text", "🤖・Bot 7/11")],
+        ),
+    ]
+
+    created_categories = 0
+    created_channels = 0
+    skipped_channels = 0
+
+    for category_name, channels in layout:
+        category = discord.utils.get(interaction.guild.categories, name=category_name)
+        if category is None:
+            try:
+                category = await interaction.guild.create_category(category_name)
+                created_categories += 1
+            except (discord.Forbidden, discord.HTTPException):
+                continue
+
+        for channel_kind, channel_name in channels:
+            if channel_kind == "text":
+                existing_channel = discord.utils.get(
+                    interaction.guild.text_channels, name=channel_name, category=category
+                )
+                if existing_channel is not None:
+                    skipped_channels += 1
+                    continue
+                try:
+                    await interaction.guild.create_text_channel(channel_name, category=category)
+                    created_channels += 1
+                except (discord.Forbidden, discord.HTTPException):
+                    continue
+            else:
+                existing_channel = discord.utils.get(
+                    interaction.guild.voice_channels, name=channel_name, category=category
+                )
+                if existing_channel is not None:
+                    skipped_channels += 1
+                    continue
+                try:
+                    await interaction.guild.create_voice_channel(channel_name, category=category)
+                    created_channels += 1
+                except (discord.Forbidden, discord.HTTPException):
+                    continue
+
+    await interaction.followup.send(
+        "✅ Server channel layout setup finished.\n"
+        f"• Categories created: **{created_categories}**\n"
+        f"• Channels created: **{created_channels}**\n"
+        f"• Channels skipped (already existed): **{skipped_channels}**",
+        ephemeral=True,
+    )
 
 
 @bot.tree.command(
