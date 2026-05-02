@@ -27,7 +27,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 automod_enabled_by_guild: dict[int, bool] = {}
 
 
-AUTOMOD_STATUS_ANNOUNCEMENT = """@everyone ✅ **AutoMod is now ON**.
+AUTOMOD_ON_ANNOUNCEMENT = """@everyone ✅ **AutoMod is now ON**.
 
 **Allowed:**
 • Respectful conversation
@@ -48,6 +48,12 @@ AUTOMOD_STATUS_ANNOUNCEMENT = """@everyone ✅ **AutoMod is now ON**.
 • Raid joins: 30-minute timeout for flagged joiners
 • Nuke behavior: ban
 • Picture spam: ban
+"""
+
+AUTOMOD_OFF_ANNOUNCEMENT = """@everyone ⚠️ **AutoMod is now OFF**.
+
+Automatic moderation protections are currently disabled in this server.
+Please be extra careful and follow server rules while moderators monitor manually.
 """
 
 # Word lists for auto moderation.
@@ -461,12 +467,12 @@ async def automod(interaction: discord.Interaction, state: app_commands.Choice[s
     enabled = state.value == "on"
     automod_enabled_by_guild[interaction.guild.id] = enabled
 
-    if enabled:
-        if interaction.channel is not None:
-            try:
-                await interaction.channel.send(AUTOMOD_STATUS_ANNOUNCEMENT)
-            except (discord.Forbidden, discord.HTTPException):
-                pass
+    announcement = AUTOMOD_ON_ANNOUNCEMENT if enabled else AUTOMOD_OFF_ANNOUNCEMENT
+    if interaction.channel is not None:
+        try:
+            await interaction.channel.send(announcement)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
 
     await interaction.response.send_message(
         f"✅ Auto moderation is now **{'ON' if enabled else 'OFF'}** for this server.",
