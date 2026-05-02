@@ -26,6 +26,30 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 # Per-guild automod toggle (defaults to enabled)
 automod_enabled_by_guild: dict[int, bool] = {}
 
+
+AUTOMOD_STATUS_ANNOUNCEMENT = """@everyone ✅ **AutoMod is now ON**.
+
+**Allowed:**
+• Respectful conversation
+• Safe-for-work content
+• No unsolicited invite links
+
+**Not allowed:**
+• Curse/profanity, sexual content, harassment, hate/racist slurs
+• Discord invite links
+• Spam/flooding messages
+• Raid or nuke behavior
+• Picture spam across channels
+
+**Automatic punishment when detected:**
+• Prohibited language: message deleted + warning
+• Invite links: message deleted + 14-day timeout
+• Text spam: 10-minute timeout
+• Raid joins: 30-minute timeout for flagged joiners
+• Nuke behavior: ban
+• Picture spam: ban
+"""
+
 # Word lists for auto moderation.
 # NOTE: This list intentionally includes terms from multiple categories/languages,
 # including common Bisaya profanity samples requested by the user.
@@ -402,6 +426,22 @@ async def echo(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(message)
 
 
+
+
+@bot.tree.command(name="say", description="Make the bot send a message in this channel.")
+@app_commands.describe(message="The message you want the bot to send")
+@app_commands.default_permissions(manage_messages=True)
+async def say(interaction: discord.Interaction, message: str):
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    await interaction.channel.send(message)
+    await interaction.followup.send("✅ Message sent.", ephemeral=True)
+
 @bot.tree.command(name="automod", description="Toggle automatic moderation on or off for this server.")
 @app_commands.describe(state="Choose whether automod should be on or off")
 @app_commands.choices(
@@ -421,6 +461,13 @@ async def automod(interaction: discord.Interaction, state: app_commands.Choice[s
     enabled = state.value == "on"
     automod_enabled_by_guild[interaction.guild.id] = enabled
 
+    if enabled:
+        if interaction.channel is not None:
+            try:
+                await interaction.channel.send(AUTOMOD_STATUS_ANNOUNCEMENT)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
+
     await interaction.response.send_message(
         f"✅ Auto moderation is now **{'ON' if enabled else 'OFF'}** for this server.",
         ephemeral=True,
@@ -432,6 +479,7 @@ async def commands_list(interaction: discord.Interaction):
     custom_commands = [
         ("/ping", "Respond with Pong!"),
         ("/echo <message>", "Echo back the message provided."),
+        ("/say <message>", "Make the bot send a message in the current channel."),
         (
             "/automod <on|off>",
             "Toggle anti-spam, anti-raid, anti-nuke, bad-word filter, and anti-invite on/off.",
