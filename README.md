@@ -102,5 +102,5 @@ worker: python bot.py
 ## Notes and limitations
 
 - Moderation state and counters are currently **in-memory only** and reset when the bot restarts.
-- AutoMod is **enabled by default** for guilds unless toggled off via `/automod`.
+- AutoMod is **disabled by default** for guilds unless toggled on via `/automod`.
 - Thresholds are currently hardcoded in `bot.py` and can be tuned there.
