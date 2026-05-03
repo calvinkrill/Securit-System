@@ -23,7 +23,7 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Per-guild automod toggle (defaults to enabled)
+# Per-guild automod toggle (defaults to disabled)
 automod_enabled_by_guild: dict[int, bool] = {}
 
 
@@ -240,7 +240,7 @@ async def on_message(message: discord.Message):
         return
 
     guild_id = message.guild.id if message.guild else None
-    automod_enabled = True if guild_id is None else automod_enabled_by_guild.get(guild_id, True)
+    automod_enabled = False if guild_id is None else automod_enabled_by_guild.get(guild_id, False)
 
     if automod_enabled:
         # Anti-spam: timeout users who send too many messages quickly.
@@ -350,7 +350,7 @@ async def on_message(message: discord.Message):
 @bot.event
 async def on_member_join(member: discord.Member):
     guild = member.guild
-    automod_enabled = automod_enabled_by_guild.get(guild.id, True)
+    automod_enabled = automod_enabled_by_guild.get(guild.id, False)
     if not automod_enabled:
         return
 
@@ -380,7 +380,7 @@ async def handle_potential_nuke(
     action: discord.AuditLogAction,
     target,
 ) -> None:
-    automod_enabled = automod_enabled_by_guild.get(guild.id, True)
+    automod_enabled = automod_enabled_by_guild.get(guild.id, False)
     if not automod_enabled:
         return
 
